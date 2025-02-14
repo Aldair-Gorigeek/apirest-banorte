@@ -4,6 +4,7 @@ import com.gorigeek.banorte.apirest.security.CertificateUtils;
 import com.gorigeek.banorte.apirest.service.BanorteEncryptService;
 import com.gorigeek.banorte.apirest.service.BanorteHttpService;
 import com.gorigeek.banorte.apirest.entity.BanorteResponse;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -13,44 +14,63 @@ import java.util.Map;
 @RequestMapping("/api/banorte")
 public class BanorteController {
 
-	@PostMapping("/procesarPago")
-	public Map<String, Object> procesarPago(@RequestBody Map<String, String> datosPago) {
-	    Map<String, Object> respuesta = new HashMap<>();
-	    try {
-	        String certificatePath = "src/main/resources/static/multicobros.cer";
-	        String publicKey = CertificateUtils.extractPublicKey(certificatePath);
+    @PostMapping("/procesarPago")
+    public ResponseEntity<Map<String, Object>> procesarPago(@RequestBody Map<String, String> datosPago) {
+        Map<String, Object> respuesta = new HashMap<>();
+        try {
+            // Ruta del certificado
+            String certificatePath = "src/main/resources/static/multicobros.cer";
+            
+            // Extraer llave pública
+            String publicKey = CertificateUtils.extractPublicKey(certificatePath);
 
-	        String jsonData = String.format("{ \"merchantId\": \"%s\", \"amount\": \"%s\", \"controlNumber\": \"%s\" }",
-	                datosPago.get("merchantId"),
-	                datosPago.get("amount"),
-	                datosPago.get("controlNumber"));
+            // Generar JSON con los datos recibidos
+            String jsonData = String.format(
+                "{ \"merchantId\": \"%s\", \"name\": \"%s\", \"password\": \"%s\", \"mode\": \"%s\", \"controlNumber\": \"%s\", \"terminalId\": \"%s\", \"amount\": \"%s\", \"merchantName\": \"%s\", \"merchantCity\": \"%s\", \"lang\": \"%s\" }",
+                datosPago.get("merchantId"),
+                datosPago.get("name"),
+                datosPago.get("password"),
+                datosPago.get("mode"),
+                datosPago.get("controlNumber"),
+                datosPago.get("terminalId"),
+                datosPago.get("amount"),
+                datosPago.get("merchantName"),
+                datosPago.get("merchantCity"),
+                datosPago.get("lang")
+            );
 
-	        BanorteEncryptService encryptService = new BanorteEncryptService();
-	        String cadenaCifrada = encryptService.generarCadenaCifrada(jsonData, publicKey);
+            // Generar cadena cifrada
+            BanorteEncryptService encryptService = new BanorteEncryptService();
+            String cadenaCifrada = encryptService.generarCadenaCifrada(jsonData, publicKey);
 
-	        String url = "https://via.pagosbanorte.com/payw2";
+            // URL de prueba de Banorte
+            String url = "https://via.pagosbanorte.com/payw2";
 
-	        BanorteHttpService httpService = new BanorteHttpService();
-	        String respuestaBanorte = httpService.enviarCadenaCifrada(cadenaCifrada, url);
+            // Enviar cadena cifrada al servidor de Banorte
+            BanorteHttpService httpService = new BanorteHttpService();
+            String respuestaBanorte = httpService.enviarCadenaCifrada(cadenaCifrada, url);
 
-	        System.out.println("Respuesta sin procesar de Banorte: " + respuestaBanorte);
+            // Analizar respuesta de Banorte
+            if (respuestaBanorte.trim().startsWith("{")) {
+                BanorteResponse banorteResponse = new BanorteResponse(respuestaBanorte);
+                respuesta.put("success", true);
+                respuesta.put("data", banorteResponse);
+            } else {
+                respuesta.put("success", false);
+                respuesta.put("rawResponse", respuestaBanorte);
+                respuesta.put("message", "La respuesta no es JSON. Verifica los parámetros.");
+            }
+            respuesta.put("cadenaCifrada", cadenaCifrada);
+            respuesta.put("urlEnviada", url);
+            respuesta.put("respuestaBanorte", respuestaBanorte);
 
-	        // Verificar si la respuesta es JSON
-	        if (respuestaBanorte.trim().startsWith("{")) {
-	            BanorteResponse banorteResponse = new BanorteResponse(respuestaBanorte);
-	            respuesta.put("success", true);
-	            respuesta.put("data", banorteResponse);
-	        } else {
-	            respuesta.put("success", false);
-	            respuesta.put("rawResponse", respuestaBanorte);
-	            respuesta.put("message", "La respuesta no es JSON. Verifica los parámetros.");
-	        }
-	    } catch (Exception e) {
-	        respuesta.put("success", false);
-	        respuesta.put("error", e.getMessage());
-	        e.printStackTrace();
-	    }
-	    return respuesta;
-	}
-
+            return ResponseEntity.ok(respuesta);
+        } catch (Exception e) {
+            // Manejo de excepciones
+            respuesta.put("success", false);
+            respuesta.put("error", e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(500).body(respuesta);
+        }
+    }
 }

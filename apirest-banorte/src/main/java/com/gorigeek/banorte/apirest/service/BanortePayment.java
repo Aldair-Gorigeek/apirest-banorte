@@ -90,33 +90,5 @@ public class BanortePayment {
 		}
 		
 		return responsePago;
-}
-    
-    public static void main(String[] args) {
-        BanortePayment payment = new BanortePayment();
-        try {
-            // Datos de prueba
-            String montoComision = "100.00";
-            String tarjetaDecrypt = "4111111111111111"; // Tarjeta de prueba
-            String vencimiento = "1225"; // MMYY
-            String cvvDecrypt = "123";
-            String verificar3DSecure = "SeUsa";
-            String XID = "";
-            String CAVV = "";
-            String ECI = "";
-            String status3D = "";
-
-            // Llamar al método de pago
-            String resultado = payment.procesaPago(
-                    montoComision, tarjetaDecrypt, vencimiento, cvvDecrypt,
-                    verificar3DSecure, XID, CAVV, ECI, status3D
-            );
-
-            // Imprimir el resultado
-            System.out.println("Resultado del pago: " + resultado);
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
+	}
 }
